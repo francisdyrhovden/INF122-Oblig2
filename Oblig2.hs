@@ -1,6 +1,6 @@
 -- Francis Soliman Dyrhovden, Gruppe 1
 
-import System.IO ()
+import System.IO
 import Data.Char ( isDigit )
 import Data.List
 
@@ -71,7 +71,7 @@ gameOfLife n s b cells = do
                                 putStr "\ESC[0J"
                                 gameOfLife n s [read x :: Int, read y :: Int] cells
                             else do
-                                printMessage "Not valid rule" n
+                                printMessage "Not valid rule for births" n
                                 gameOfLife n s b cells
         ("s":x:y:[]) -> 
                         if (isValid x y)
@@ -80,7 +80,7 @@ gameOfLife n s b cells = do
                                 putStr "\ESC[0J" 
                                 gameOfLife n [read x, read y] b cells
                             else do
-                                printMessage "Not valid rule" n
+                                printMessage "Not valid rule for survivors" n
                                 gameOfLife n s b cells
         ("?":[]) -> do
                             showRules n s b
@@ -104,9 +104,50 @@ gameOfLife n s b cells = do
                             else do 
                                 printMessage "Parameter must be an integer" n
                                 gameOfLife n s b cells
+        ("r":name:[]) -> do
+                            fc <- readFile name
+                            let commands = words fc
+                            if (commands == [])
+                                then do 
+                                    printMessage "File is empty" n
+                                    gameOfLife n s b cells
+                                else do
+                                    let boardSize = read (head commands) :: Int
+                                    cleanBoard (boardSize)
+                                    newGame (tail commands) boardSize s b cells
         _ -> do                                                            
                         printMessage "Unknown command" n
                         gameOfLife n s b cells
+
+newGame :: [String] -> Int -> [Int] -> [Int] -> [(Int,Int)] -> IO()
+newGame [] n s b cells = gameOfLife n s b cells
+newGame ("(":ls) n s b cells = newGame ls n s b cells
+newGame (",":ls) n s b cells = newGame ls n s b cells
+newGame (")":ls) n s b cells = newGame ls n s b cells
+
+newGame ("s":x:y:ls) n s b cells = do
+    if (isValid x y)
+        then do
+            goto (18,n+3)
+            putStr "\ESC[0J" 
+            newGame ls n [read x, read y] b cells
+        else do
+                printMessage "Not valid rule for survivors" n
+                gameOfLife n s b cells
+newGame ("b":x:y:ls) n s b cells = do
+    if (isValid x y)
+        then do
+            goto (18,n+3)
+            putStr "\ESC[0J" 
+            newGame ls n s [read x, read y] cells
+        else do
+                printMessage "Not valid rule for survivors" n
+                gameOfLife n s b cells
+newGame ls n s b cells = do
+    let newCells = addCells n ls cells                                                  
+    changeArr ls n "O"
+    newGame [] n s b newCells
+
 
 upCells :: Int -> Int -> [Int] -> [Int] -> [(Int,Int)] -> [(Int,Int)]
 upCells 0 _ _ _ cells = cells

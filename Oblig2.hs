@@ -106,7 +106,7 @@ gameOfLife n s b cells = do
                                 gameOfLife n s b cells
         ("r":name:[]) -> do
                             fc <- readFile name
-                            let commands = words fc
+                            let commands = map (delete ')') (map (delete '(') (map (delete ',') (words fc)))
                             if (commands == [])
                                 then do 
                                     printMessage "File is empty" n
@@ -118,36 +118,30 @@ gameOfLife n s b cells = do
         _ -> do                                                            
                         printMessage "Unknown command" n
                         gameOfLife n s b cells
-
+                        
 newGame :: [String] -> Int -> [Int] -> [Int] -> [(Int,Int)] -> IO()
-newGame [] n s b cells = gameOfLife n s b cells
-newGame ("(":ls) n s b cells = newGame ls n s b cells
-newGame (",":ls) n s b cells = newGame ls n s b cells
-newGame (")":ls) n s b cells = newGame ls n s b cells
-
-newGame ("s":x:y:ls) n s b cells = do
-    if (isValid x y)
-        then do
-            goto (18,n+3)
-            putStr "\ESC[0J" 
-            newGame ls n [read x, read y] b cells
-        else do
-                printMessage "Not valid rule for survivors" n
-                gameOfLife n s b cells
-newGame ("b":x:y:ls) n s b cells = do
-    if (isValid x y)
-        then do
-            goto (18,n+3)
-            putStr "\ESC[0J" 
-            newGame ls n s [read x, read y] cells
-        else do
-                printMessage "Not valid rule for survivors" n
-                gameOfLife n s b cells
-newGame ls n s b cells = do
-    let newCells = addCells n ls cells                                                  
-    changeArr ls n "O"
-    newGame [] n s b newCells
-
+newGame ls n s b cells = case ls of
+    [] -> gameOfLife n s b cells
+    ("s":x:y:ls) -> if (isValid x y)
+                        then do
+                            goto (18,n+3)
+                            putStr "\ESC[0J" 
+                            newGame ls n [read x, read y] b cells
+                        else do
+                            printMessage "Not valid rule for survivors" n
+                            gameOfLife n s b cells
+    ("b":x:y:ls) -> if (isValid x y)
+                        then do
+                            goto (18,n+3)
+                            putStr "\ESC[0J" 
+                            newGame ls n s [read x, read y] cells
+                        else do
+                            printMessage "Not valid rule for survivors" n
+                            gameOfLife n s b cells
+    ls -> do
+                            let newCells = addCells n ls cells                                                  
+                            changeArr ls n "O"
+                            newGame [] n s b newCells                        
 
 upCells :: Int -> Int -> [Int] -> [Int] -> [(Int,Int)] -> [(Int,Int)]
 upCells 0 _ _ _ cells = cells

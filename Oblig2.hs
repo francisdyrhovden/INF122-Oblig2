@@ -1,11 +1,13 @@
 -- Francis Soliman Dyrhovden, Gruppe 1
 
--- Jeg antar at når man starter spillet så er det kun mulig å skrive quit, c eller r før man går inn i gameloop, og at det ikke er mulig å skrive c eller r i gameloop.
--- x og y koordinater er byttet om
+-- 2.4: 10 (s 0 0, b 2 2)
 
-import System.IO
+-- Jeg antar at når man starter spillet så er det kun mulig å skrive quit, c eller r før man går inn i gameloop, og at det ikke er mulig å skrive c eller r i gameloop.
+-- x og y koordinater er byttet om i min kode i forhold til oppgaven. Jeg oppdaget dette litt sent, og besluttet at det ikke var verdt å endre store deler av koden for dette da prinsippet er det samme.
+
+import System.IO ()
 import Data.Char ( isDigit )
-import Data.List
+import Data.List ( delete )
 
 type Board = [Pos]
 type Pos = (Int,Int)
@@ -202,6 +204,7 @@ isAlive :: Board -> Pos -> Bool
 isAlive cells pos = elem pos cells
 
 showRules :: Size -> Rule -> Rule -> IO()
+showRules n [] [] = printMessage "No rules yet" n
 showRules n s b = do
             goto (18,n+3)
             putStr "\ESC[0J"

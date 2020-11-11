@@ -1,8 +1,16 @@
 -- Francis Soliman Dyrhovden, Gruppe 1
 
+-- Jeg antar at når man starter spillet så er det kun mulig å skrive quit, c eller r før man går inn i gameloop, og at det ikke er mulig å skrive c eller r i gameloop.
+-- x og y koordinater er byttet om
+
 import System.IO
 import Data.Char ( isDigit )
 import Data.List
+
+type Board = [Pos]
+type Pos = (Int,Int)
+type Rule = [Int]
+type Size = Int
 
 main :: IO ()
 main = do 
@@ -14,11 +22,22 @@ main = do
             putStrLn "Program has quit."
             return ()
          ("c":n:[]) -> board (read n :: Int)
+         ("r":name:[]) -> do
+            fc <- readFile name
+            let commands = map (delete ')') (map (delete '(') (map (delete ',') (words fc)))
+            if (commands == [])
+                then do 
+                    putStrLn "File is empty"
+                    main
+                else do
+                    let boardSize = read (head commands) :: Int
+                    cleanBoard (boardSize)
+                    newGame (tail commands) boardSize [] [] []
          _ -> do                                                            
             putStrLn "Unknown command"
-            main   
+            main
 
-board :: Int -> IO ()
+board :: Size -> IO ()
 board n 
     | n <= 0 || n >= 100 = error "Number must be between 1 and 99"
     | otherwise = do
@@ -31,7 +50,7 @@ board n
         printInstructions n 
         gameOfLife n [] [] [] 
 
-rows :: Int -> Int -> String
+rows :: Size -> Size -> String
 rows cols row = spaces (2 - l row)                                  
                     ++ (show row)                                       
                     ++ concat ["  ." | _ <- [1..cols]]                 
@@ -40,13 +59,13 @@ rows cols row = spaces (2 - l row)
 l :: Int -> Int
 l = length . show
 
-goto :: (Int, Int) -> IO ()
+goto :: Pos -> IO ()
 goto (x,y) = putStr ("\ESC[" ++ show y ++ ";" ++ show x ++ "H")
 
 spaces :: Int -> String
 spaces n = replicate n ' '
 
-gameOfLife :: Int -> [Int] -> [Int] -> [(Int,Int)] -> IO()
+gameOfLife :: Size -> Rule -> Rule -> Board -> IO()
 gameOfLife n s b cells = do
     goto (0,n+4)                                                        
     putStr "\ESC[0J"                                                    
@@ -98,28 +117,17 @@ gameOfLife n s b cells = do
         ("l":x:[]) ->
                         if (isDigit (head x))
                             then do
-                                let updatedCells = upCells (read x :: Int) n s b cells
+                                let updated = updateCells (read x :: Int) n s b cells
                                 liveMode (read x :: Int) n s b cells
-                                gameOfLife n s b updatedCells
+                                gameOfLife n s b updated
                             else do 
                                 printMessage "Parameter must be an integer" n
                                 gameOfLife n s b cells
-        ("r":name:[]) -> do
-                            fc <- readFile name
-                            let commands = map (delete ')') (map (delete '(') (map (delete ',') (words fc)))
-                            if (commands == [])
-                                then do 
-                                    printMessage "File is empty" n
-                                    gameOfLife n s b cells
-                                else do
-                                    let boardSize = read (head commands) :: Int
-                                    cleanBoard (boardSize)
-                                    newGame (tail commands) boardSize s b cells
         _ -> do                                                            
                         printMessage "Unknown command" n
                         gameOfLife n s b cells
                         
-newGame :: [String] -> Int -> [Int] -> [Int] -> [(Int,Int)] -> IO()
+newGame :: [String] -> Size -> Rule -> Rule -> Board -> IO()
 newGame ls n s b cells = case ls of
     [] -> gameOfLife n s b cells
     ("s":x:y:ls) -> if (isValid x y)
@@ -143,13 +151,13 @@ newGame ls n s b cells = case ls of
                             changeArr ls n "O"
                             newGame [] n s b newCells                        
 
-upCells :: Int -> Int -> [Int] -> [Int] -> [(Int,Int)] -> [(Int,Int)]
-upCells 0 _ _ _ cells = cells
-upCells x n s b cells = if (cells == (concat [survivors n s cells,births n b cells]))
-                            then upCells 0 n s b cells
-                            else upCells (x-1) n s b (concat [survivors n s cells,births n b cells])
+updateCells :: Int -> Size -> Rule -> Rule -> Board -> Board
+updateCells 0 _ _ _ cells = cells
+updateCells x n s b cells = if (cells == (concat [survivors n s cells,births n b cells]))
+                            then updateCells 0 n s b cells
+                            else updateCells (x-1) n s b (concat [survivors n s cells,births n b cells])
 
-liveMode :: Int -> Int -> [Int] -> [Int] -> [(Int,Int)] -> IO()
+liveMode :: Int -> Size -> Rule -> Rule -> Board -> IO()
 liveMode 0 _ _ _ _ = return()
 liveMode x n s b cells = do
     let surv = survivors n s cells
@@ -165,10 +173,10 @@ liveMode x n s b cells = do
             sequence_ [return () | _ <- [1..5000000]] -- Delay
             liveMode (x-1) n s b (concat [surv,birth])
 
-convert :: [(Int, Int)] -> [Int]
+convert :: [(Int,Int)] -> Rule
 convert ls = concat (map (\(x,y) -> [x,y]) ls)
 
-cleanBoard :: Int -> IO()
+cleanBoard :: Size -> IO()
 cleanBoard n  = do
         putStr "\ESC[2J"                                                
         goto (0,0)                                                    
@@ -178,22 +186,22 @@ cleanBoard n  = do
         mapM_ (putStr . (rows n )) [1..n]
         printInstructions n 
 
-births :: Int -> [Int] -> [(Int,Int)]  -> [(Int,Int)]
+births :: Size -> Rule -> Board -> [Pos]
 births n b cells = [(x,y) | x <- [1..n], y <- [1..n], not (isAlive cells (x,y)), elem (liveneighbs n cells (x,y)) b ]
 
-survivors :: Int -> [Int] -> [(Int,Int)]  -> [(Int,Int)]
+survivors :: Size -> Rule -> Board -> [Pos]
 survivors n s cells = ([cell | cell <- cells, elem (liveneighbs n cells cell) s])
 
-neighbours :: Int -> (Int, Int) -> [(Int,Int)]
+neighbours :: Size -> Pos -> [Pos]
 neighbours n (x,y) = filter (\(x,y) -> x <= n && y <= n && x > 0 && y > 0) [(x-1,y-1), (x,y-1), (x+1,y-1), (x-1,y), (x+1,y), (x-1,y+1), (x,y+1), (x+1,y+1)]
 
-liveneighbs :: Int -> [(Int, Int)] -> (Int, Int) -> Int
+liveneighbs :: Size -> [Pos] -> Pos -> Int
 liveneighbs n cells = length . filter (isAlive cells) . neighbours n
 
-isAlive :: [(Int,Int)] -> (Int,Int) -> Bool
+isAlive :: Board -> Pos -> Bool
 isAlive cells pos = elem pos cells
 
-showRules :: Int -> [Int] -> [Int] -> IO()
+showRules :: Size -> Rule -> Rule -> IO()
 showRules n s b = do
             goto (18,n+3)
             putStr "\ESC[0J"
@@ -206,14 +214,14 @@ showRules n s b = do
 isValid :: String -> String -> Bool
 isValid x y = and (map (all isDigit) [x,y]) && (read x :: Int) <= (read y :: Int) && (read x :: Int) >= 0
 
-removeCells :: Int -> [String] -> [(Int,Int)] -> [(Int,Int)]
+removeCells :: Size -> [String] -> Board -> Board
 removeCells _ [] cells = cells
 removeCells _ (_:[]) cells = cells
 removeCells n (x:y:ls) cells = if ( elem (read x, read y)) cells
                                 then delete (read x, read y) cells
                                 else removeCells n ls cells
 
-printLivingCells :: Int -> [(Int,Int)] -> IO()
+printLivingCells :: Size -> Board -> IO()
 printLivingCells n [] =  do 
     goto (18,n+3)
     putStr "\ESC[0J"
@@ -223,7 +231,7 @@ printLivingCells n cells = do
     putStr "\ESC[0J"
     putStr (show cells)
 
-addCells :: Int -> [String] -> [(Int,Int)] -> [(Int,Int)]
+addCells :: Size -> [String] -> Board -> Board
 addCells _ [] cells = cells
 addCells _ (_:[]) cells = cells
 addCells n (x:y:ls) cells 
@@ -235,7 +243,7 @@ addCells n (x:y:ls) cells
                                                                 else addCells n ls cells
                     | otherwise = addCells n ls cells
 
-change :: String -> String -> Int -> String -> IO()                         
+change :: String -> String -> Size -> String -> IO()                         
 change x y n str
         | and (map (all isDigit) [x,y]) = let (nx,ny) = (read x, read y) in 
                                             if (nx > n || nx < 1 || ny > n || ny < 1)
@@ -243,26 +251,26 @@ change x y n str
                                                 else printInGrid str nx ny n
         | otherwise = printMessage "Coordinates must be numbers" n
 
-changeArr :: [String] -> Int -> String -> IO()
+changeArr :: [String] -> Size -> String -> IO()
 changeArr [] _ _ = return ()
 changeArr (_:[]) n _ = printMessage "Coordinates must be in pairs" n
 changeArr (x:y:ls) n str = do
     change x y n str
     changeArr ls n str
 
-printInGrid :: String -> Int -> Int -> Int -> IO()                         
+printInGrid :: String -> Int -> Int -> Size -> IO()                         
 printInGrid s x y n = do
             printMessage "" n                                                  
             goto (x*3+2, y+1)                                               
             putStr s                                                        
 
-printMessage :: String -> Int -> IO() 
+printMessage :: String -> Size -> IO() 
 printMessage s n = do
         goto (18,n+3) 
         putStr "\ESC[0J" 
         putStr s 
 
-printInstructions :: Int -> IO()
+printInstructions :: Size -> IO()
 printInstructions n = do
                 goto (0,n+3) 
                 putStrLn "Enter a command:" 

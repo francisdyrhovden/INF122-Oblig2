@@ -1,9 +1,10 @@
 -- Francis Soliman Dyrhovden, Gruppe 1
 
--- 2.4: 10 (s 0 0, b 2 2)
+-- 2.4: 10 (s 0 0, b 2 2) 4 1 7 1 5 2 6 2
 
 -- Jeg antar at når man starter spillet så er det kun mulig å skrive quit, c eller r før man går inn i gameloop, og at det ikke er mulig å skrive c eller r i gameloop.
 -- x og y koordinater er byttet om i min kode i forhold til oppgaven. Jeg oppdaget dette litt sent, og besluttet at det ikke var verdt å endre store deler av koden for dette da prinsippet er det samme.
+-- Antar også at brukeren angir en fil som eksisterer og bruker formatet som er beskrevet i 2.3.
 
 import System.IO ()
 import Data.Char ( isDigit )
